@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+permissions:
+  contents: read
+  packages: write
 jobs:
   push:
     name: "g5v:latest"
