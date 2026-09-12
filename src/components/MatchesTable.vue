@@ -8,6 +8,7 @@
     :items="matches"
     :options.sync="options"
     :server-items-length="totalMatches"
+    :item-class="rowClass"
     ref="MatchesTable"
   >
     <template v-slot:item.id="{ item }">
@@ -47,6 +48,11 @@
       <div v-else>
         {{ item.team2_string }}
       </div>
+    </template>
+    <template v-slot:item.match_status="{ item }">
+      <span :class="{ 'live-status': isMatchLive(item) }">
+        {{ item.match_status }}
+      </span>
     </template>
     <template v-slot:top>
       <div v-if="isMyMatches && isThereCancelledMatches">
@@ -98,7 +104,7 @@ export default {
         {
           text: this.$t("Matches.Status"),
           value: "match_status",
-          sortable: false
+          sortable: true
         },
         {
           text: this.$t("Matches.Owner"),
@@ -119,6 +125,16 @@ export default {
     }
   },
   methods: {
+    isMatchLive(match) {
+      return (
+        match.end_time == null &&
+        (match.cancelled == 0 || match.cancelled == null) &&
+        match.start_time != null
+      );
+    },
+    rowClass(item) {
+      return this.isMatchLive(item) ? "live-row" : "";
+    },
     async pushMatchData(resultArray) {
       this.isLoading = true;
       let matches = [];
@@ -135,11 +151,7 @@ export default {
           team1Score = match.team1_score == undefined ? 0 : match.team1_score;
           team2Score = match.team2_score == undefined ? 0 : match.team2_score;
         }
-        if (
-          match.end_time == null &&
-          (match.cancelled == 0 || match.cancelled == null) &&
-          match.start_time != null
-        ) {
+        if (this.isMatchLive(match)) {
           matchString = `Live, ${team1Score}:${team2Score} vs ${match.team2_string}`;
         } else if (team1Score < team2Score) {
           matchString = `Lost, ${team1Score}:${team2Score} vs ${match.team2_string}`;
@@ -169,25 +181,42 @@ export default {
       const { sortBy, sortDesc, page, itemsPerPage } = this.options;
       if (typeof count == "string") count = [];
       if (sortBy.length === 1 && sortDesc.length === 1) {
-        count = count.sort((a, b) => {
-          const sortA = a[sortBy[0]];
-          const sortB = b[sortBy[0]];
-          if (sortDesc[0]) {
-            if (sortA < sortB) return 1;
-            if (sortA > sortB) return -1;
+        if (sortBy[0] === "match_status") {
+          count = await this.pushMatchData(count);
+          count = count.sort((a, b) => {
+            const liveA = this.isMatchLive(a) ? 1 : 0;
+            const liveB = this.isMatchLive(b) ? 1 : 0;
+            if (liveA !== liveB) {
+              return sortDesc[0] ? liveA - liveB : liveB - liveA;
+            }
+            if (a.match_status < b.match_status) return sortDesc[0] ? 1 : -1;
+            if (a.match_status > b.match_status) return sortDesc[0] ? -1 : 1;
             return 0;
-          } else {
-            if (sortA < sortB) return -1;
-            if (sortA > sortB) return 1;
-            return 0;
-          }
-        });
+          });
+        } else {
+          count = count.sort((a, b) => {
+            const sortA = a[sortBy[0]];
+            const sortB = b[sortBy[0]];
+            if (sortDesc[0]) {
+              if (sortA < sortB) return 1;
+              if (sortA > sortB) return -1;
+              return 0;
+            } else {
+              if (sortA < sortB) return -1;
+              if (sortA > sortB) return 1;
+              return 0;
+            }
+          });
+        }
       }
       this.totalMatches = count.length;
       if (itemsPerPage > 0) {
         count = count.slice((page - 1) * itemsPerPage, page * itemsPerPage);
       }
-      this.matches = await this.pushMatchData(count);
+      this.matches =
+        sortBy.length === 1 && sortBy[0] === "match_status"
+          ? count
+          : await this.pushMatchData(count);
       return;
     },
     async deleteCancelled() {
@@ -202,3 +231,10 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+.live-status {
+  color: #4caf50;
+  font-weight: bold;
+}
+</style>
