@@ -411,6 +411,24 @@ export default {
           }
         },
         {
+          title: this.$t("MatchAdmin.AdminPauseMatch"),
+          apiCall: async () => {
+            this.isLoading = true;
+            this.response = await this.AdminPauseMatch(this.matchInfo.id);
+            this.responseSheet = true;
+            this.isLoading = false;
+          }
+        },
+        {
+          title: this.$t("MatchAdmin.AdminUnpauseMatch"),
+          apiCall: async () => {
+            this.isLoading = true;
+            this.response = await this.AdminUnpauseMatch(this.matchInfo.id);
+            this.isLoading = false;
+            this.responseSheet = true;
+          }
+        },
+        {
           title: this.$t("MatchAdmin.AddPlayerToServer"),
           apiCall: () => {
             this.addDialog = true;
